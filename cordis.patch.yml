@@ -1,0 +1,4 @@
+# dsh-plugin-manager bundle layer: mounts the plugin manager row.
+- insert:
+    - id: plugin-manager
+      name: dsh-plugin-manager
