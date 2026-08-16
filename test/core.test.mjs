@@ -199,6 +199,22 @@ console.log('== fixture: packages list + uninstall (manual runner) ==')
   rmSync(dir, { recursive: true, force: true })
 }
 
+console.log('== fixture: marketplace helpers ==')
+{
+  const dir = makeFixture()
+  const anchors = [join(dir, 'package.json')]
+  ok(core.isMarketSpec('github:owner/repo') === true, 'accepts github spec')
+  ok(core.isMarketSpec('github:owner/repo#v1.0.0') === true, 'accepts github spec with ref')
+  ok(core.isMarketSpec('owner/repo') === false, 'rejects bare owner/repo')
+  ok(core.isMarketSpec('github:owner/repo; rm -rf /') === false, 'rejects shell injection')
+  ok(core.normalizeGitHubRepo('https://github.com/Fixture/Plugin-A.git') === 'fixture/plugin-a', 'normalizes github url')
+  const installed = core.installedMarketplaceSet(dir)
+  ok(installed.has('fixture/plugin-a'), 'installed set includes fixture/plugin-a')
+  const g = await core.installMarketPlugin(dir, anchors, 'fixture', 'bad spec')
+  ok(g.ok === false && /invalid marketplace spec/.test(g.error), 'install refuses invalid spec')
+  rmSync(dir, { recursive: true, force: true })
+}
+
 console.log('== real profile: read-only listing ==')
 {
   const profileDir = join(process.env.USERPROFILE ?? process.env.HOME ?? '', '.dsh', 'profiles', 'web')
