@@ -12,7 +12,7 @@ DSH（DeepSeek Harness）Web 插件：在浏览器里**启用 / 禁用任意已�
 - **插件列表**：组合出 dsh web 当前的全部插件行（含 bundle 归属、版本、描述、来源仓库、注册表、tarball、安装时间），核心组件（`@deepseek-ai/dsh-base` / `@deepseek-ai/dsh-web-app` 的行）标记为受保护、不可切换；
 - **启用 / 禁用**：向 profile 的 `cordis.patch.yml` 写入 `{id, disabled}` 覆盖行——与 dsh 官方 telemetry 开关同一机制，dsh web 通过 HMR **即时生效**，无需重启（个别 UI 变化可能需要刷新页面）；
 - **卸载**：「已安装包」页签列出 profile 中的插件包及其贡献的功能行，一键卸载 = 清理该包全部行的禁用条目 → `pnpm remove`（与 `dsh plugin remove` 同路径）→ 对账 bundle 层 → 审计记录移除事件；pnpm 不可用时自动降级为手动清理（依赖 + bundles + node_modules，lockfile 留给下次 pnpm 操作修复）。运行中的 dsh web 保留旧代码，重启后完全生效；
-- **插件市场**：「插件市场」页签从 GitHub `dsh-plugin` topic 拉取公开的 harness 插件（支持关键词搜索 / 分页），标注已安装状态；点击「安装」会调用 `dsh plugin --profile <profile> add github:owner/repo` 命令安装，并触发下载审计；
+- **插件市场**：「插件市场」页签从 npm registry 拉取已发布的 DSH / harness 插件（`keywords:dsh-plugin`，支持关键词搜索 / 分页），标注已安装状态；点击「安装」会调用 `dsh plugin --profile <profile> add <package>` 命令安装，并触发下载审计；
 - **下载审计**：监听 profile 的 `package.json` / `pnpm-lock.yaml` / `.npmrc`，插件安装 / 更新 / 移除时自动追加一条 JSONL 记录：事件、包名、版本、来源仓库、注册表、tarball、安装时间（node_modules 目录 mtime）、发现方式。dsh 未运行期间的变更在下次启动补记为基线；
 - **审计日志**：`~/.dsh/plugin-manager/audit.jsonl`（与状态快照 `state.json` 同目录）。
 
@@ -59,8 +59,8 @@ dsh plugin --profile web remove dsh-plugin-manager
 | POST | `/api/dsh-plugin-manager/packages/uninstall` | `{packageName}`，pnpm 卸载 + bundle 对账 + 审计 |
 | GET | `/api/dsh-plugin-manager/audit` | 最近 300 条审计记录（新在前） |
 | POST | `/api/dsh-plugin-manager/audit/rescan` | 立即扫描一次变更 |
-| GET | `/api/dsh-plugin-manager/market?q=&page=&perPage=` | 从 GitHub `dsh-plugin` topic 拉取插件市场列表（含已安装标注） |
-| POST | `/api/dsh-plugin-manager/market/install` | `{spec: "github:owner/repo"}`，运行 `dsh plugin --profile <profile> add <spec>` 安装 |
+| GET | `/api/dsh-plugin-manager/market?q=&page=&perPage=` | 从 npm registry 拉取 `keywords:dsh-plugin` 插件市场列表（含已安装标注） |
+| POST | `/api/dsh-plugin-manager/market/install` | `{spec: "npm-package-name"}`，运行 `dsh plugin --profile <profile> add <spec>` 安装 |
 
 ## 测试
 

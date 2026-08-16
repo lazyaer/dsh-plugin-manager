@@ -205,6 +205,8 @@ console.log('== fixture: marketplace helpers ==')
   const anchors = [join(dir, 'package.json')]
   ok(core.isMarketSpec('github:owner/repo') === true, 'accepts github spec')
   ok(core.isMarketSpec('github:owner/repo#v1.0.0') === true, 'accepts github spec with ref')
+  ok(core.isMarketSpec('dsh-foo') === true, 'accepts npm package name')
+  ok(core.isMarketSpec('@scope/dsh-foo') === true, 'accepts scoped npm package name')
   ok(core.isMarketSpec('owner/repo') === false, 'rejects bare owner/repo')
   ok(core.isMarketSpec('github:owner/repo; rm -rf /') === false, 'rejects shell injection')
   ok(core.normalizeGitHubRepo('https://github.com/Fixture/Plugin-A.git') === 'fixture/plugin-a', 'normalizes github url')
