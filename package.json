@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-manager",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "DSH web plugin: enable/disable installed plugins from the browser, and audit every plugin download with its source and time.",
   "type": "module",
   "main": "lib/index.js",

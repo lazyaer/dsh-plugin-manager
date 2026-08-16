@@ -144,6 +144,61 @@ console.log('== fixture: compose + list ==')
   rmSync(dir, { recursive: true, force: true })
 }
 
+console.log('== fixture: packages list + uninstall (manual runner) ==')
+{
+  const dir = makeFixture()
+  const anchors = [join(dir, 'package.json')]
+  // add a plain library dep: must never be listed as uninstallable
+  mkdirSync(join(dir, 'node_modules', 'plain-lib'), { recursive: true })
+  writeFileSync(join(dir, 'node_modules', 'plain-lib', 'package.json'), JSON.stringify({
+    name: 'plain-lib', version: '9.9.9',
+  }, null, 2) + '\n')
+  const manifest = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'))
+  manifest.dependencies['plain-lib'] = '9.9.9'
+  writeFileSync(join(dir, 'package.json'), JSON.stringify(manifest, null, 2) + '\n')
+
+  const packages = core.listPackages(dir, anchors)
+  ok(packages.length === 3, `listPackages finds 3 plugin packages (got ${packages.length}: ${packages.map((p) => p.name).join(', ')})`)
+  ok(!packages.some((p) => p.name === 'plain-lib'), 'plain library is not listed')
+  const agg = packages.find((p) => p.name === 'plugin-aggregate')
+  ok(agg && agg.rows.includes('row-b2') && agg.rows.includes('row-aggregate'), 'aggregate lists its contributed rows')
+  ok(packages.every((p) => p.uninstallable === true), 'fixture packages are uninstallable')
+
+  // guards
+  const g1 = await core.uninstallPackage(dir, anchors, 'fixture', 'plain-lib', { runner: 'manual' })
+  ok(g1.ok === false && /not a plugin package/.test(g1.error), 'plain library uninstall refused')
+  const g2 = await core.uninstallPackage(dir, anchors, 'fixture', 'not-a-dep', { runner: 'manual' })
+  ok(g2.ok === false && /not a dependency/.test(g2.error), 'non-dependency uninstall refused')
+
+  // disable row-b first, then uninstall plugin-b: the disable entry must be cleaned up
+  core.setPluginEnabled(dir, anchors, 'row-b', false)
+  const before = readFileSync(join(dir, 'cordis.patch.yml'), 'utf8')
+  ok(/row-b/.test(before), 'row-b disabled before uninstall')
+
+  process.env.DPM_DATA_DIR = join(dir, 'audit-data')
+  core.scanNow(dir, anchors, 'fixture') // pre-seed state so the removal diffs as `removed`
+  const result = await core.uninstallPackage(dir, anchors, 'fixture', 'plugin-b', { runner: 'manual' })
+  ok(result.ok === true, 'uninstall plugin-b ok')
+  ok(result.via === 'manual', 'manual runner used')
+  ok(result.removedRows.includes('row-b'), 'row-b listed as removed row')
+
+  const afterManifest = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'))
+  ok(!(afterManifest.dependencies ?? {})['plugin-b'], 'plugin-b dropped from dependencies')
+  ok(!(afterManifest.dsh?.profile?.bundles ?? []).includes('plugin-b'), 'plugin-b dropped from bundles')
+  ok(!existsSync(join(dir, 'node_modules', 'plugin-b')), 'plugin-b node_modules removed')
+  const patchAfter = readFileSync(join(dir, 'cordis.patch.yml'), 'utf8')
+  ok(!/row-b/.test(patchAfter), 'disable entry cleaned after uninstall')
+  const auditAfter = core.loadAudit(10)
+  ok(auditAfter.some((e) => e.event === 'removed' && e.name === 'plugin-b'), 'audit records the removal')
+
+  // aggregate still intact
+  const afterPackages = core.listPackages(dir, anchors)
+  ok(afterPackages.length === 2, `2 packages remain (got ${afterPackages.length})`)
+  ok(afterPackages.some((p) => p.name === 'plugin-aggregate'), 'plugin-aggregate survives')
+  delete process.env.DPM_DATA_DIR
+  rmSync(dir, { recursive: true, force: true })
+}
+
 console.log('== real profile: read-only listing ==')
 {
   const profileDir = join(process.env.USERPROFILE ?? process.env.HOME ?? '', '.dsh', 'profiles', 'web')
@@ -162,6 +217,9 @@ console.log('== real profile: read-only listing ==')
   ok(modlens && modlens.installedAt !== null, 'modlens installedAt present')
   const pet = plugins.find((p) => p.name === '@linxin666/dsh-pet')
   ok(pet && pet.protected === false, `dsh-pet row toggleable (rowId=${pet ? pet.rowId : '?'})`)
+  const packages = core.listPackages(profileDir, anchors)
+  ok(packages.length >= 4, `listPackages: ${packages.map((p) => `${p.name}@${p.version}(${p.rows.length}行)`).join(', ')}`)
+  ok(packages.some((p) => p.name === '@liustack/modlens' && p.rows.includes('modlens')), 'modlens package lists its row')
   console.log('  sample rows:')
   for (const row of plugins.filter((p) => !p.protected).slice(0, 12)) {
     console.log(`    - ${row.rowId}  ${row.name}@${row.version ?? '?'}  ${row.enabled ? 'on' : 'OFF'}  src=${row.sourceBundle ?? '-'}  at=${row.installedAt ?? '-'}  repo=${row.repository ?? '-'}  reg=${row.registry ?? '-'}`)

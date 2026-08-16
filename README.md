@@ -11,6 +11,7 @@ DSH（DeepSeek Harness）Web 插件：在浏览器里**启用 / 禁用任意已�
 
 - **插件列表**：组合出 dsh web 当前的全部插件行（含 bundle 归属、版本、描述、来源仓库、注册表、tarball、安装时间），核心组件（`@deepseek-ai/dsh-base` / `@deepseek-ai/dsh-web-app` 的行）标记为受保护、不可切换；
 - **启用 / 禁用**：向 profile 的 `cordis.patch.yml` 写入 `{id, disabled}` 覆盖行——与 dsh 官方 telemetry 开关同一机制，dsh web 通过 HMR **即时生效**，无需重启（个别 UI 变化可能需要刷新页面）；
+- **卸载**：「已安装包」页签列出 profile 中的插件包及其贡献的功能行，一键卸载 = 清理该包全部行的禁用条目 → `pnpm remove`（与 `dsh plugin remove` 同路径）→ 对账 bundle 层 → 审计记录移除事件；pnpm 不可用时自动降级为手动清理（依赖 + bundles + node_modules，lockfile 留给下次 pnpm 操作修复）。运行中的 dsh web 保留旧代码，重启后完全生效；
 - **下载审计**：监听 profile 的 `package.json` / `pnpm-lock.yaml` / `.npmrc`，插件安装 / 更新 / 移除时自动追加一条 JSONL 记录：事件、包名、版本、来源仓库、注册表、tarball、安装时间（node_modules 目录 mtime）、发现方式。dsh 未运行期间的变更在下次启动补记为基线；
 - **审计日志**：`~/.dsh/plugin-manager/audit.jsonl`（与状态快照 `state.json` 同目录）。
 
@@ -24,6 +25,13 @@ dsh plugin --profile web add file:D:/path/to/dsh-plugin-manager
 然后重启 `dsh web`。侧边栏右下角出现 🧩 悬浮按钮，点击打开「插件管理」面板。
 
 依赖：`yaml`（由 pnpm 自动安装）。Node >= 22.19。
+
+> 更新源码后刷新已安装副本（pnpm 对 `file:` 依赖不自动重拷）：
+>
+> ```sh
+> dsh plugin --profile web remove dsh-plugin-manager
+> dsh plugin --profile web add file:D:/path/to/dsh-plugin-manager
+> ```
 
 ## 卸载
 
@@ -46,6 +54,8 @@ dsh plugin --profile web remove dsh-plugin-manager
 | --- | --- | --- |
 | GET | `/api/dsh-plugin-manager/plugins` | 全部插件行（含 enabled / protected / 来源 / 安装时间） |
 | POST | `/api/dsh-plugin-manager/plugins/toggle` | `{rowId, enabled}`，写 patch 层 |
+| GET | `/api/dsh-plugin-manager/packages` | profile 中可卸载的插件包（含贡献的功能行） |
+| POST | `/api/dsh-plugin-manager/packages/uninstall` | `{packageName}`，pnpm 卸载 + bundle 对账 + 审计 |
 | GET | `/api/dsh-plugin-manager/audit` | 最近 300 条审计记录（新在前） |
 | POST | `/api/dsh-plugin-manager/audit/rescan` | 立即扫描一次变更 |
 
